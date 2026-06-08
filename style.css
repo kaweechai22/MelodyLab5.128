@@ -1369,3 +1369,16 @@ main.wrap{
   .visualizerMenuPage .vizSubItem h3{font-size:.96rem !important;line-height:1.28 !important}
   .visualizerMenuPage .vizSubItem p{font-size:.82rem !important;line-height:1.4 !important}
 }
+
+/* v5.34 Longitudinal final visual style */
+.longitudinalFocusPage .vizMediaFrame canvas{
+  min-height: 440px;
+}
+@media (orientation: landscape) and (max-height: 600px){
+  .longitudinalFocusPage .longitudinalFocusGrid{
+    grid-template-columns:minmax(0,2.2fr) minmax(250px,.72fr);
+  }
+  .longitudinalFocusPage .vizMediaFrame canvas{
+    min-height: 360px;
+  }
+}
