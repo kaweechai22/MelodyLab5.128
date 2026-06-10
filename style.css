@@ -2424,3 +2424,11 @@ main.wrap{
   font-size:.66rem !important;
   padding:3px 5px !important;
 }
+
+
+.legendLine{display:inline-block;width:30px;height:0;border-top:3px solid #22d3ee;border-radius:999px;vertical-align:middle;margin-right:2px;}
+.legendLine.amber{border-top-color:#fbbf24;}
+.displacementPressureFocusPage .vizMediaFrame canvas{background:transparent;}
+
+.phaseRow .paramIcon{background:linear-gradient(135deg,rgba(168,85,247,.35),rgba(59,130,246,.26));}
+.phaseDiffRow .paramIcon{background:linear-gradient(135deg,rgba(251,191,36,.35),rgba(168,85,247,.28));font-size:.86rem;}

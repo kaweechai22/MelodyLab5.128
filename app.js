@@ -164,6 +164,8 @@ function getVizParams(){
   const A=Number($("vizAmp")?.value||0.7);
   const v=Number($("vizSpeed")?.value||343);
   const speed=Number($("vizTimeSpeed")?.value||1);
+  const phaseDeg=Number($("vizPhase")?.value||0);
+  const phaseDiffDeg=Number($("vizPhaseDiff")?.value||90);
   const lambda=v/f;
   if($("vizFreqOut")) $("vizFreqOut").textContent=f.toFixed(0)+" Hz";
   if($("vizAmpOut")) $("vizAmpOut").textContent=A.toFixed(2);
@@ -173,7 +175,9 @@ function getVizParams(){
   if($("vizAmpLabel")) $("vizAmpLabel").textContent=A.toFixed(2);
   if($("vizSpeedLabel")) $("vizSpeedLabel").textContent=v.toFixed(0)+" m/s";
   if($("vizTimeLabel")) $("vizTimeLabel").textContent=speed.toFixed(1)+"×";
-  return {f,A,v,speed,lambda,sub:$("vizSubMode")?.value||"closed"};
+  if($("vizPhaseLabel")) $("vizPhaseLabel").textContent=phaseDeg.toFixed(0)+"°";
+  if($("vizPhaseDiffLabel")) $("vizPhaseDiffLabel").textContent=phaseDiffDeg.toFixed(0)+"°";
+  return {f,A,v,speed,lambda,sub:$("vizSubMode")?.value||"closed",phaseDeg,phase:phaseDeg*Math.PI/180,phaseDiffDeg,phaseDiff:phaseDiffDeg*Math.PI/180};
 }
 function vizGrid(ctx,c){
   ctx.clearRect(0,0,c.width,c.height);
@@ -664,6 +668,196 @@ function drawLongitudinalFinal(ctx, c, p, w, h){
 }
 
 
+
+function drawDisplacementPressureFinal(ctx, c, p, w, h){
+  ctx.clearRect(0,0,w,h);
+
+  const bg=ctx.createLinearGradient(0,0,w,h);
+  bg.addColorStop(0,"#020817");
+  bg.addColorStop(1,"#081532");
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,w,h);
+
+  ctx.strokeStyle="rgba(148,163,184,.10)";
+  ctx.lineWidth=1;
+  for(let x=0;x<w;x+=78){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+  for(let y=0;y<h;y+=52){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+  const xMin = Math.max(110, w * 0.11);
+  const xMax = w - 72;
+  const obsX = w * 0.57;
+  const wavelengthPx = 270;
+  const k = 2 * Math.PI / wavelengthPx;
+  const phase = vizState.t * 0.105 * p.speed - p.phase;
+  const phaseDiff = p.phaseDiff ?? Math.PI/2;
+  const phaseDiffDeg = Math.round(p.phaseDiffDeg ?? 90);
+  const phaseDistancePx = wavelengthPx * (phaseDiffDeg / 360);
+
+  const titleY = 34;
+  const arrowY = 78;
+  const topCard = {x:xMin-24, y:118, w:xMax-xMin+48, h:108};
+  const bottomCard = {x:xMin-24, y:272, w:xMax-xMin+48, h:108};
+  const topMid = topCard.y + topCard.h/2;
+  const bottomMid = bottomCard.y + bottomCard.h/2;
+  const ampPx = Math.min(36, topCard.h * 0.30) * p.A;
+  const pressureAmpPx = Math.min(36, bottomCard.h * 0.30) * p.A;
+
+  ctx.fillStyle="#cfe9ff";
+  ctx.font="20px Sarabun, system-ui, sans-serif";
+  ctx.textAlign="left";
+  ctx.fillText("Displacement and Pressure (คลื่นการกระจัดและคลื่นความดัน)", 24, titleY);
+
+  ctx.save();
+  ctx.strokeStyle="rgba(34,211,238,.96)";
+  ctx.fillStyle="rgba(34,211,238,.96)";
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.moveTo(w*0.29,arrowY);
+  ctx.lineTo(w*0.82,arrowY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(w*0.82,arrowY);
+  ctx.lineTo(w*0.795,arrowY-14);
+  ctx.lineTo(w*0.795,arrowY+14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.font="bold 17px Sarabun, system-ui, sans-serif";
+  ctx.textAlign="center";
+  ctx.fillText("ทิศทางการเคลื่อนที่ของคลื่น", w*0.555, arrowY-16);
+  ctx.restore();
+
+  function drawPanel(card, strokeCol){
+    ctx.save();
+    const grad = ctx.createLinearGradient(card.x, card.y, card.x, card.y + card.h);
+    grad.addColorStop(0,"rgba(4,18,42,.78)");
+    grad.addColorStop(1,"rgba(2,8,24,.38)");
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, card.x, card.y, card.w, card.h, 18);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+  drawPanel(topCard, "rgba(95,185,255,.28)");
+  drawPanel(bottomCard, "rgba(255,190,92,.28)");
+
+  ctx.save();
+  ctx.strokeStyle="rgba(255,255,255,.18)";
+  ctx.setLineDash([6,6]);
+  ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(xMin, topMid); ctx.lineTo(xMax, topMid); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(xMin, bottomMid); ctx.lineTo(xMax, bottomMid); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle="rgba(255,77,109,.62)";
+  ctx.setLineDash([8,8]);
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(obsX, topCard.y-8);
+  ctx.lineTo(obsX, bottomCard.y+bottomCard.h+8);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  const displacementAt = (x)=> Math.sin(k*(x-obsX)-phase);
+  const pressureAt = (x)=> Math.sin(k*(x-obsX)-phase + phaseDiff);
+
+  const topPts=[], bottomPts=[];
+  for(let x=xMin; x<=xMax; x++){
+    topPts.push([x, topMid - displacementAt(x) * ampPx]);
+    bottomPts.push([x, bottomMid - pressureAt(x) * pressureAmpPx]);
+  }
+
+  drawWaveLine(ctx, topPts, "#22d3ee", 3.5);
+  drawWaveLine(ctx, bottomPts, "#fbbf24", 3.5);
+
+  ctx.save();
+  ctx.textAlign="left";
+  ctx.font="bold 16px Sarabun, system-ui, sans-serif";
+  ctx.fillStyle="rgba(208,247,255,.95)";
+  ctx.fillText("การกระจัด s", xMin, topCard.y - 16);
+  ctx.fillStyle="rgba(255,234,179,.96)";
+  ctx.fillText("ความดัน ΔP", xMin, bottomCard.y - 16);
+  ctx.restore();
+
+  function drawXAxis(y){
+    ctx.save();
+    ctx.strokeStyle="rgba(255,255,255,.22)";
+    ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(xMin, y); ctx.lineTo(xMax, y); ctx.stroke();
+    const ticks = 12;
+    for(let i=0;i<ticks;i++){
+      const tx = xMin + i * (xMax-xMin) / (ticks-1);
+      ctx.beginPath(); ctx.moveTo(tx, y-6); ctx.lineTo(tx, y+6); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  drawXAxis(topCard.y + topCard.h + 4);
+  drawXAxis(bottomCard.y + bottomCard.h + 4);
+
+  ctx.save();
+  ctx.fillStyle="rgba(207,233,255,.78)";
+  ctx.font="14px Sarabun, system-ui, sans-serif";
+  ctx.textAlign="center";
+  ctx.save(); ctx.translate(xMin-58, topMid); ctx.rotate(-Math.PI/2); ctx.fillText("การกระจัด s (สัมพัทธ์)", 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(xMin-58, bottomMid); ctx.rotate(-Math.PI/2); ctx.fillText("ความดัน ΔP (สัมพัทธ์)", 0, 0); ctx.restore();
+  ctx.fillText("ตำแหน่ง x", w*0.53, topCard.y + topCard.h + 22);
+  ctx.fillText("ตำแหน่ง x", w*0.53, bottomCard.y + bottomCard.h + 22);
+  ctx.restore();
+
+  ctx.save();
+  ctx.font="bold 14px Sarabun, system-ui, sans-serif";
+  ctx.textAlign="right";
+  ctx.fillStyle="rgba(15,34,66,.86)";
+  ctx.strokeStyle="rgba(147,197,253,.34)";
+  roundRect(ctx, xMax-270, topCard.y-38, 270, 28, 12);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle="rgba(235,246,255,.96)";
+  ctx.fillText(`Phase Difference: Δφ = ${phaseDiffDeg}°`, xMax-14, topCard.y-19);
+  ctx.restore();
+
+  const phaseX1 = obsX;
+  const phaseX2 = Math.min(xMax-10, obsX + phaseDistancePx);
+  const phaseY = topCard.y + topCard.h + 31;
+  if(phaseX2 - phaseX1 > 24){
+    ctx.save();
+    ctx.strokeStyle="rgba(196,181,253,.94)";
+    ctx.fillStyle="rgba(220,210,255,.96)";
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(phaseX1, phaseY); ctx.lineTo(phaseX2, phaseY); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(phaseX1, phaseY);
+    ctx.lineTo(phaseX1+10, phaseY-6);
+    ctx.moveTo(phaseX1, phaseY);
+    ctx.lineTo(phaseX1+10, phaseY+6);
+    ctx.moveTo(phaseX2, phaseY);
+    ctx.lineTo(phaseX2-10, phaseY-6);
+    ctx.moveTo(phaseX2, phaseY);
+    ctx.lineTo(phaseX2-10, phaseY+6);
+    ctx.stroke();
+    ctx.font="13px Sarabun, system-ui, sans-serif";
+    ctx.textAlign="center";
+    const frac = phaseDiffDeg===90 ? "λ/4" : `${phaseDiffDeg}/360 λ`;
+    ctx.fillText(`${phaseDiffDeg}° ≈ ${frac}`, (phaseX1+phaseX2)/2, phaseY+17);
+    ctx.restore();
+  }
+
+  const topY = topMid - displacementAt(obsX) * ampPx;
+  const bottomY = bottomMid - pressureAt(obsX) * pressureAmpPx;
+  drawTrackedParticle(ctx, obsX, topY, "");
+  drawTrackedParticle(ctx, obsX, bottomY, "");
+
+  ctx.save();
+  ctx.fillStyle="rgba(255,255,255,.86)";
+  ctx.font="14px Sarabun, system-ui, sans-serif";
+  ctx.textAlign="right";
+  ctx.fillText("จุดสังเกต", obsX - 12, topCard.y + 18);
+  ctx.restore();
+}
+
 function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.clearRect(0,0,w,h);
 
@@ -1055,6 +1249,13 @@ function drawVisualizer(){
     return;
   }
 
+  if(mode==="displacementPressure"){
+    drawDisplacementPressureFinal(ctx,c,p,W,H);
+    if(vizState.running) vizState.t += 1;
+    vizState.raf=requestAnimationFrame(drawVisualizer);
+    return;
+  }
+
 
   ctx.fillStyle="#cfe9ff"; ctx.font="20px Sarabun";
   ctx.fillText(modeLabel(mode),24,34);
@@ -1277,7 +1478,7 @@ function initVisualizer(){
       vizState.mode=btn.dataset.viz;
     };
   });
-  ["vizFreq","vizAmp","vizSpeed","vizTimeSpeed","vizSubMode"].forEach(id=>$(id)?.addEventListener("input",getVizParams));
+  ["vizFreq","vizAmp","vizSpeed","vizTimeSpeed","vizPhase","vizPhaseDiff","vizSubMode"].forEach(id=>$(id)?.addEventListener("input",getVizParams));
   $("vizPlayBtn").onclick=()=>{vizState.running=true;updateVizPlayerButtons("play");};
   $("vizPauseBtn").onclick=()=>{vizState.running=false;updateVizPlayerButtons("pause");};
   $("vizResetBtn").onclick=()=>{vizState.t=0;updateVizPlayerButtons("reset");};
@@ -1342,11 +1543,15 @@ function getLocalPageSnapshot(){
   if($("vizAmp")) row.parameter_amplitude_A = Number($("vizAmp").value || 0);
   if($("vizSpeed")) row.parameter_wave_speed_m_s = Number($("vizSpeed").value || 0);
   if($("vizTimeSpeed")) row.parameter_time_speed_x = Number($("vizTimeSpeed").value || 0);
+  if($("vizPhase")) row.parameter_phase_deg = Number($("vizPhase").value || 0);
+  if($("vizPhaseDiff")) row.parameter_phase_difference_deg = Number($("vizPhaseDiff").value || 0);
   if($("vizSubMode")) row.parameter_mode = $("vizSubMode").value || "";
   if($("vizFreqLabel")) row.frequency_display = $("vizFreqLabel").textContent || "";
   if($("vizAmpLabel")) row.amplitude_display = $("vizAmpLabel").textContent || "";
   if($("vizSpeedLabel")) row.wave_speed_display = $("vizSpeedLabel").textContent || "";
   if($("vizTimeLabel")) row.time_speed_display = $("vizTimeLabel").textContent || "";
+  if($("vizPhaseLabel")) row.phase_display = $("vizPhaseLabel").textContent || "";
+  if($("vizPhaseDiffLabel")) row.phase_difference_display = $("vizPhaseDiffLabel").textContent || "";
   const freqVal = Number($("vizFreq")?.value || 0);
   const speedVal = Number($("vizSpeed")?.value || 0);
   if(freqVal > 0 && speedVal > 0) row.parameter_wavelength_m = +(speedVal / freqVal).toFixed(4);
@@ -1482,9 +1687,10 @@ function resizeVisualizerCanvas(){
   const cssW = Math.max(280, Math.floor(rect.width - 4));
   const isLandscape = window.matchMedia("(orientation: landscape)").matches;
   const isLongitudinal = !!document.querySelector(".visualizerSinglePage[data-viz-mode='longitudinal']");
+  const isDisplacementPressure = !!document.querySelector(".visualizerSinglePage[data-viz-mode='displacementPressure']");
 
   let cssH;
-  if(isLongitudinal){
+  if(isLongitudinal || isDisplacementPressure){
     // v5.66: force graph to fill the graph slot vertically on real phones.
     // Portrait: graph height is based on viewport height, not just width.
     // This makes the particle region extend from near the title to near the player bar.
